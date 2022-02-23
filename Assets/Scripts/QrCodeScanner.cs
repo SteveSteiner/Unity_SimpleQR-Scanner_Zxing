@@ -8,7 +8,7 @@ public class QrCodeScanner : MonoBehaviour
 {
     #region Fields
     [SerializeField]
-    private RawImage rimg_bgImage;
+    private RawImage rimg_background;
 
     [SerializeField]
     private AspectRatioFitter aspectRatioFitter;
@@ -21,21 +21,25 @@ public class QrCodeScanner : MonoBehaviour
 
     private bool isCamAvailable;
     private WebCamTexture cameraTexture;
+    private float cameraWidth, cameraHeight = 0f;
+    private float screenWidth, screenHeight = 0f;
     #endregion
 
     #region Mono methods
     void Start()
     {
         SetupCamera();
+        screenWidth = Screen.currentResolution.width;
+        screenHeight = Screen.currentResolution.height;
     }
 
     void Update()
     {
-        
+        UpdateCamera();
     }
     #endregion
 
-    #region Methods
+    #region Scan methods
     private void SetupCamera()
     {
         WebCamDevice[] webCamDevices = WebCamTexture.devices;
@@ -52,13 +56,49 @@ public class QrCodeScanner : MonoBehaviour
         {
             if(!wcd.isFrontFacing)
             {
-                cameraTexture = new WebCamTexture(wcd.name, (int)rt_Scanzone.rect.width, (int)rt_Scanzone.rect.height);
+                cameraTexture = new WebCamTexture(wcd.name, (int)screenWidth, (int)screenHeight);
             }
         }
 
         cameraTexture.Play();
-        rimg_bgImage.texture = cameraTexture;
+        rimg_background.texture = cameraTexture;
         isCamAvailable = true;
+    }
+    private void UpdateCamera()
+    {
+        if(isCamAvailable)
+        {
+            return;
+        }
+        aspectRatioFitter.aspectRatio = cameraTexture.width / cameraTexture.height;
+        rimg_background.rectTransform.localEulerAngles = new Vector3(0, 0, cameraTexture.videoRotationAngle);
+    }
+
+    public void Scan()
+    {
+        Debug.Log("Try to Scan");
+        if (isCamAvailable)
+        {
+            try
+            {
+                IBarcodeReader barcodeReader = new BarcodeReader();
+                Result result = barcodeReader.Decode(cameraTexture.GetPixels32(), cameraTexture.width, cameraTexture.height);
+                if (result != null)
+                {
+                    Debug.Log(result.BarcodeFormat.ToString());
+                    txt_qrResult.text = result.Text;
+                }
+                else
+                {
+                    txt_qrResult.text = "Not recognized";
+                }
+            }
+            catch(System.Exception ex)
+            {
+                Debug.Log(ex.ToString());
+                txt_qrResult.text = "Error";
+            }
+        }
     }
     #endregion
 }
