@@ -28,7 +28,11 @@ public class QrCodeScanner : MonoBehaviour
     #region Mono methods
     void Start()
     {
+#if UNITY_EDITOR
+        SetupLocalCamera();
+#else
         SetupCamera();
+#endif
         screenWidth = Screen.currentResolution.width;
         screenHeight = Screen.currentResolution.height;
     }
@@ -36,15 +40,16 @@ public class QrCodeScanner : MonoBehaviour
     void Update()
     {
         UpdateCamera();
+        StartCoroutine("crScan");
     }
-    #endregion
+#endregion
 
-    #region Scan methods
+#region Camera Methods
     private void SetupCamera()
     {
         WebCamDevice[] webCamDevices = WebCamTexture.devices;
 
-        if(webCamDevices.Length == 0)
+        if (webCamDevices.Length == 0)
         {
             isCamAvailable = false;
             txt_qrResult.text = "No Camera Available";
@@ -52,9 +57,9 @@ public class QrCodeScanner : MonoBehaviour
             return;
         }
 
-        foreach(WebCamDevice wcd in webCamDevices)
+        foreach (WebCamDevice wcd in webCamDevices)
         {
-            if(!wcd.isFrontFacing)
+            if (!wcd.isFrontFacing)
             {
                 cameraTexture = new WebCamTexture(wcd.name, (int)screenWidth, (int)screenHeight);
             }
@@ -64,25 +69,51 @@ public class QrCodeScanner : MonoBehaviour
         rimg_background.texture = cameraTexture;
         isCamAvailable = true;
     }
+
+    private void SetupLocalCamera()
+    {
+        WebCamDevice[] webCamDevices = WebCamTexture.devices;
+
+        if (webCamDevices.Length == 0)
+        {
+            isCamAvailable = false;
+            txt_qrResult.text = "No Camera Available";
+            Debug.LogWarning("No Camera Available");
+            return;
+        }
+
+        foreach (WebCamDevice wcd in webCamDevices)
+        {
+            if (wcd.isFrontFacing)
+            {
+                cameraTexture = new WebCamTexture(wcd.name, (int)screenWidth, (int)screenHeight);
+            }
+        }
+
+        cameraTexture.Play();
+        rimg_background.texture = cameraTexture;
+        isCamAvailable = true;
+    }
+
     private void UpdateCamera()
     {
-        if(isCamAvailable)
+        if (!isCamAvailable)
         {
             return;
         }
-        aspectRatioFitter.aspectRatio = cameraTexture.width / cameraTexture.height;
-        rimg_background.rectTransform.localEulerAngles = new Vector3(0, 0, cameraTexture.videoRotationAngle);
+        aspectRatioFitter.aspectRatio = cameraTexture.width / cameraTexture.width;
+        rimg_background.rectTransform.localEulerAngles = new Vector3(0, 0, -cameraTexture.videoRotationAngle);
     }
 
     public void Scan()
     {
-        Debug.Log("Try to Scan");
         if (isCamAvailable)
         {
             try
             {
                 IBarcodeReader barcodeReader = new BarcodeReader();
                 Result result = barcodeReader.Decode(cameraTexture.GetPixels32(), cameraTexture.width, cameraTexture.height);
+                
                 if (result != null)
                 {
                     Debug.Log(result.BarcodeFormat.ToString());
@@ -100,5 +131,11 @@ public class QrCodeScanner : MonoBehaviour
             }
         }
     }
-    #endregion
+
+    public IEnumerator crScan()
+    {
+        Scan();
+        yield return null;
+    }
+#endregion
 }
